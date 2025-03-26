@@ -1,0 +1,45 @@
+body {
+    font-family: sans-serif;
+    margin: 2em;
+    color: #3d3d3d;
+    background-color: #121212;
+}
+
+#myimage {
+    position: absolute;
+    width: 20px;
+    height: 20px;
+    background-color: darkblue;
+    z-index: 3;
+}
+
+section {
+    margin: 1em 0;
+}
+
+.videoView {
+    position: relative;
+    width: 48vw;
+}
+
+video {
+    display: block;
+    transform: rotateY(180deg);
+}
+
+#output_canvas {
+    z-index: 1;
+    position: absolute;
+    pointer-events: none;
+    transform: rotateY(180deg);
+}
+
+button {
+    margin-right: 0.5em;
+    padding: 0.5em 1em;
+    font-weight: bold;
+    background-color: #111;
+    color: white;
+    border: none;
+    border-radius: 4px;
+}
