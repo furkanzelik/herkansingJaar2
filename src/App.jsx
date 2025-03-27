@@ -16,6 +16,14 @@ export default function App() {
     const [webcamRunning, setWebcamRunning] = useState(false);
     const [results, setResults] = useState(null);
 
+    const [captureData, setCaptureData] = useState({
+        good_luck:[],
+        good_job:[],
+        loser:[],
+        rock:[],
+        call_me:[],
+    });
+
     // Model laden
     useEffect(() => {
         const loadModel = async () => {
@@ -115,16 +123,47 @@ export default function App() {
         }
     };
 
+    function simplifyLandmarks(landmarks) {
+        return landmarks.map(point => ({
+            x: point.x,
+            y: point.y,
+            z: point.z
+        }));
+    }
+
+
+    function capturePose(label) {
+        if (results && results.landmarks.length > 0) {
+            const simplified = simplifyLandmarks(results.landmarks[0]); // neem eerste hand
+            setCaptureData(prev => ({
+                ...prev,
+                [label]: [...prev[label], simplified]
+            }));
+            console.log(`Gebaar "${label}" opgeslagen ✅`);
+        } else {
+            console.warn("Geen hand gevonden om op te slaan ❌");
+        }
+    }
+
+    function downloadJSON(label) {
+        const blob = new Blob(
+            [JSON.stringify(captureData[label], null, 2)],
+            { type: 'application/json' }
+        );
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${label}.json`;
+        link.click();
+    }
+
+
     return (
         <section>
-            <h1>Handpose detection</h1>
-            <button onClick={enableWebcam}>STARTWEBCAM</button>
-            <button onClick={logAllHands}>LOG DATA</button>
             <div className="videoView">
                 <div style={{ position: 'relative' }}>
                     <video
                         ref={videoRef}
-                        style={{ position: 'absolute' }}
                         autoPlay
                         muted
                         playsInline
@@ -132,13 +171,31 @@ export default function App() {
                     <canvas
                         ref={canvasRef}
                         id="output_canvas"
-                        style={{ position: 'absolute', left: 0, top: 0 }}
                     />
-                    <div ref={imageRef} id="myimage">
-                        hoi
-                    </div>
+                    <div ref={imageRef} id="myimage">hoi</div>
+                </div>
+            </div>
+
+            <div className="controls">
+                <h1>Handpose detection</h1>
+                <button onClick={enableWebcam}>START WEBCAM</button>
+                <button onClick={logAllHands}>LOG DATA</button>
+
+                <div className="pose-controls">
+                    <h3>📥 Gebaren vastleggen & downloaden:</h3>
+                    {['good_luck', 'good_job', 'loser', 'call_me', 'rock'].map((label) => (
+                        <div key={label}>
+                            <button onClick={() => capturePose(label)}>
+                                📸 Capture "{label.replace('_', ' ')}"
+                            </button>
+                            <button onClick={() => downloadJSON(label)}>
+                                💾 Download "{label}.json"
+                            </button>
+                        </div>
+                    ))}
                 </div>
             </div>
         </section>
     );
+
 }
