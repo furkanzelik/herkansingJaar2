@@ -6,26 +6,27 @@ import {
 } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18';
 import './style.css';
 
-export default function App() {
+export default function Trainer() {
     const videoRef = useRef(null);
     const canvasRef = useRef(null);
-    const imageRef = useRef(null);
     const drawUtilsRef = useRef(null);
-
     const [handLandmarker, setHandLandmarker] = useState(null);
-    const [webcamRunning, setWebcamRunning] = useState(false);
     const [results, setResults] = useState(null);
     const [gestureData, setGestureData] = useState({});
-    const [detectedGesture, setDetectedGesture] = useState("...");
-    const [distanceScores, setDistanceScores] = useState([]);
+    const [captureData, setCaptureData] = useState({
+        good_luck: [],
+        good_job: [],
+        loser: [],
+        rock: [],
+        call_me: [],
+    });
 
-    // 🧠 Model laden
+    // Model laden
     useEffect(() => {
         const loadModel = async () => {
             const vision = await FilesetResolver.forVisionTasks(
                 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm'
             );
-
             const handModel = await HandLandmarker.createFromOptions(vision, {
                 baseOptions: {
                     modelAssetPath:
@@ -42,7 +43,7 @@ export default function App() {
         loadModel();
     }, []);
 
-    // 📁 JSON gesture data laden
+    // Laad bestaande JSON data
     useEffect(() => {
         const loadGestureData = async () => {
             const labels = ["good_luck", "good_job", "loser", "call_me", "rock"];
@@ -67,8 +68,6 @@ export default function App() {
     const enableWebcam = async () => {
         if (!handLandmarker) return;
 
-        setWebcamRunning(true);
-
         const video = videoRef.current;
         const stream = await navigator.mediaDevices.getUserMedia({
             video: true,
@@ -88,23 +87,14 @@ export default function App() {
     };
 
     const predictWebcam = async () => {
-        if (!handLandmarker || !webcamRunning) return;
+        if (!handLandmarker) return;
 
         const video = videoRef.current;
         const result = await handLandmarker.detectForVideo(video, performance.now());
-        setResults(result);
 
         if (result.landmarks.length > 0) {
             drawResults(result);
-
-            const thumb = result.landmarks[0][4];
-            imageRef.current.style.transform = `translate(${
-                video.videoWidth - thumb.x * video.videoWidth
-            }px, ${thumb.y * video.videoHeight}px)`;
-
-            knnClassify(result.landmarks[0], 3);
-        } else {
-            setDetectedGesture("...");
+            setResults(result);
         }
 
         requestAnimationFrame(predictWebcam);
@@ -136,85 +126,111 @@ export default function App() {
         ctx.restore();
     };
 
+    const simplifyLandmarks = (landmarks) =>
+        landmarks.map(p => ({ x: p.x, y: p.y, z: p.z }));
+
     const flattenLandmarks = (landmarks) =>
         landmarks.flatMap(p => [p.x, p.y, p.z]);
 
     const euclideanDistance = (a, b) =>
         Math.sqrt(a.reduce((sum, val, i) => sum + (val - b[i]) ** 2, 0));
 
-    const knnClassify = (currentLandmarks, k = 3) => {
-        const currentFlat = flattenLandmarks(currentLandmarks);
+    const predictSample = (sample) => {
+        const currentFlat = flattenLandmarks(sample);
         const distances = [];
 
         for (const [label, samples] of Object.entries(gestureData)) {
-            for (const sample of samples) {
-                const sampleFlat = flattenLandmarks(sample);
+            for (const s of samples) {
+                const sampleFlat = flattenLandmarks(s);
                 const dist = euclideanDistance(currentFlat, sampleFlat);
                 distances.push({ label, dist });
             }
         }
 
         distances.sort((a, b) => a.dist - b.dist);
-        const topK = distances.slice(0, k);
+        const topK = distances.slice(0, 3);
 
         const votes = {};
         for (const { label } of topK) {
             votes[label] = (votes[label] || 0) + 1;
         }
 
-        let bestLabel = "Onbekend 🤔";
-        let maxVotes = 0;
+        return Object.entries(votes).sort((a, b) => b[1] - a[1])[0][0];
+    };
 
-        for (const [label, count] of Object.entries(votes)) {
-            if (count > maxVotes) {
-                bestLabel = label;
-                maxVotes = count;
+    const evaluateAccuracy = () => {
+        let correct = 0;
+        let total = 0;
+
+        for (const [label, samples] of Object.entries(gestureData)) {
+            for (const sample of samples) {
+                const prediction = predictSample(sample);
+                if (prediction === label) correct++;
+                total++;
             }
         }
 
-        const averagePerLabel = {};
-        const countPerLabel = {};
+        const accuracy = ((correct / total) * 100).toFixed(2);
+        alert(`✅ Accuracy: ${accuracy}% (${correct}/${total} correct)`);
+        console.log(`📊 Evaluatie voltooid — Accuracy: ${accuracy}%`);
+    };
 
-        for (const { label, dist } of distances) {
-            averagePerLabel[label] = (averagePerLabel[label] || 0) + dist;
-            countPerLabel[label] = (countPerLabel[label] || 0) + 1;
+    const capturePose = (label) => {
+        if (results && results.landmarks.length > 0) {
+            const simplified = simplifyLandmarks(results.landmarks[0]);
+            setCaptureData(prev => ({
+                ...prev,
+                [label]: [...prev[label], simplified]
+            }));
         }
+    };
 
-        const formattedScores = Object.keys(averagePerLabel).map(label => ({
-            label,
-            avg: (averagePerLabel[label] / countPerLabel[label]).toFixed(4)
-        }));
+    const downloadJSON = (label) => {
+        const data = captureData[label];
+        if (!data || data.length === 0) return;
 
-        setDistanceScores(formattedScores);
-        setDetectedGesture(bestLabel.replace("_", " "));
+        const blob = new Blob([JSON.stringify(data, null, 2)], {
+            type: 'application/json'
+        });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `${label}.json`;
+        link.click();
     };
 
     return (
         <section>
             <header className="app-header">
-                <h1>🖐️ Gesture Predictor</h1>
-                <p>Start je webcam en zie welk handgebaar herkend wordt.</p>
+                <h1>📦 Trainer Interface</h1>
+                <p>Gebruik dit scherm om trainingsdata vast te leggen en je model te evalueren.</p>
             </header>
 
             <div className="videoView">
                 <div style={{ position: 'relative' }}>
                     <video ref={videoRef} autoPlay muted playsInline />
                     <canvas ref={canvasRef} id="output_canvas" />
-                    <div ref={imageRef} id="myimage" />
-                    <p className="gesture-label">📢 Gebaar: {detectedGesture}</p>
-                    <ul className="distance-list">
-                        {distanceScores.map(({ label, avg }) => (
-                            <li key={label}>
-                                {label.replace("_", " ")}: <strong>{avg}</strong>
-                            </li>
-                        ))}
-                    </ul>
                 </div>
             </div>
 
             <div className="controls">
-                <h2>Live Herkenning</h2>
+                <h2>🎥 Data verzamelen</h2>
                 <button onClick={enableWebcam}>🎥 Start Webcam</button>
+                <button onClick={evaluateAccuracy}>✅ Evaluate Accuracy</button>
+
+                <div className="pose-controls">
+                    <h3>📸 Capture & Download JSON</h3>
+                    {['good_luck', 'good_job', 'loser', 'call_me', 'rock'].map((label) => (
+                        <div key={label}>
+                            <button onClick={() => capturePose(label)}>
+                                📸 Capture "{label.replace('_', ' ')}"
+                            </button>
+                            <button onClick={() => downloadJSON(label)}>
+                                💾 Download "{label}.json"
+                            </button>
+                        </div>
+                    ))}
+                </div>
             </div>
         </section>
     );

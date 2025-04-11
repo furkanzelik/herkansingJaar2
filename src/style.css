@@ -1,37 +1,60 @@
 body {
-    font-family: sans-serif;
-    margin: 2em;
-    color: #3d3d3d;
-    background-color: #121212;
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', sans-serif;
+    background-color: #0d0d0d;
+    color: #e0e0e0;
+}
+
+header.app-header {
+    text-align: center;
+    padding: 2em 1em 1em;
+    background: linear-gradient(to right, #0f0f0f, #111111);
+    color: #00ffd5;
+    border-bottom: 2px solid #00ffd5;
+}
+
+header h1 {
+    font-size: 2.2em;
+    margin: 0.2em 0;
+}
+
+header p {
+    font-size: 1em;
+    color: #aaa;
+    margin: 0.2em 0;
+    max-width: 600px;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 section {
     display: flex;
     flex-direction: column;
     align-items: center;
+    padding: 2em 1em;
+    gap: 2em;
 }
 
 .videoView {
     position: relative;
     width: 48vw;
     min-height: 360px;
-    margin-bottom: 1em;
+    border: 2px solid #00ffcc;
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: 0 0 20px rgba(0, 255, 204, 0.5);
 }
 
 video {
-    display: block;
     transform: rotateY(180deg);
     width: 100%;
-    height: auto;
-    border-radius: 8px;
-    box-shadow: 0 0 10px rgba(0,0,0,0.5);
 }
 
 #output_canvas {
     z-index: 1;
     position: absolute;
     pointer-events: none;
-    transform: rotateY(180deg);
     top: 0;
     left: 0;
     width: 100%;
@@ -43,42 +66,62 @@ video {
     width: 20px;
     height: 20px;
     background-color: darkblue;
-    z-index: 3;
-}
-
-button {
-    margin: 0.3em;
-    padding: 0.5em 1em;
-    font-weight: bold;
-    background-color: #1e1e1e;
-    color: white;
-    border: none;
-    border-radius: 4px;
-    cursor: pointer;
-    transition: 0.2s ease;
-}
-
-button:hover {
-    background-color: #333;
-}
-
-h1 {
-    margin-bottom: 1em;
+    z-index: 2;
 }
 
 .controls {
     display: flex;
     flex-direction: column;
     align-items: center;
+    gap: 1em;
     max-width: 600px;
+    text-align: center;
 }
 
-.pose-controls {
+button {
+    background: #1a1a1a;
+    color: #00ffd5;
+    border: 1px solid #00ffd5;
+    border-radius: 6px;
+    padding: 0.6em 1.2em;
+    font-size: 1em;
+    cursor: pointer;
+    transition: 0.3s ease;
+    margin: 0.2em;
+}
+
+button:hover {
+    background: #00ffd5;
+    color: #000;
+}
+
+.pose-controls h3 {
     margin-top: 1em;
+    color: #00ffcc;
+    font-size: 1.2em;
 }
 
-.pose-controls div {
-    margin-bottom: 0.5em;
+.gesture-label {
+    margin-top: 1em;
+    font-size: 1.4em;
+    font-weight: bold;
+    color: #00ff99;
+    text-shadow: 0 0 8px black;
+    text-align: center;
+}
+
+.distance-list {
+    margin-top: 1em;
+    font-size: 1em;
+    color: #00ffcc;
+    list-style: none;
+    padding: 0;
+    text-align: left;
+}
+
+.distance-list li {
+    margin-bottom: 0.3em;
+    font-family: monospace;
 }
 
 @media (min-width: 768px) {
@@ -86,10 +129,13 @@ h1 {
         flex-direction: row;
         justify-content: center;
         align-items: flex-start;
-        gap: 2em;
     }
 
     .controls {
         align-items: flex-start;
+    }
+
+    .gesture-label, .distance-list {
+        text-align: left;
     }
 }
