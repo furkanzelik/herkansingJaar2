@@ -1,25 +1,27 @@
 import { useEffect, useRef, useState } from 'react';
 import {
     HandLandmarker,
-    FilesetResolver,
-    DrawingUtils
+    FilesetResolver
 } from 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.18';
+import kNear from './knear';
 import './style.css';
 
 export default function Trainer() {
     const videoRef = useRef(null);
     const canvasRef = useRef(null);
-    const drawUtilsRef = useRef(null);
     const [handLandmarker, setHandLandmarker] = useState(null);
     const [results, setResults] = useState(null);
-    const [gestureData, setGestureData] = useState({});
     const [captureData, setCaptureData] = useState({
         good_luck: [],
         good_job: [],
         loser: [],
         rock: [],
-        call_me: [],
+        call_me: []
     });
+
+    const [knn, setKnn] = useState(null);
+    const [accuracy, setAccuracy] = useState(null);
+    const [labelScores, setLabelScores] = useState([]);
 
     // Model laden
     useEffect(() => {
@@ -27,7 +29,7 @@ export default function Trainer() {
             const vision = await FilesetResolver.forVisionTasks(
                 'https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.0/wasm'
             );
-            const handModel = await HandLandmarker.createFromOptions(vision, {
+            const model = await HandLandmarker.createFromOptions(vision, {
                 baseOptions: {
                     modelAssetPath:
                         'https://storage.googleapis.com/mediapipe-models/hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task',
@@ -37,51 +39,33 @@ export default function Trainer() {
                 numHands: 1
             });
 
-            setHandLandmarker(handModel);
+            setHandLandmarker(model);
         };
 
         loadModel();
     }, []);
 
-    // Laad bestaande JSON data
-    useEffect(() => {
-        const loadGestureData = async () => {
-            const labels = ["good_luck", "good_job", "loser", "call_me", "rock"];
-            const loadedData = {};
-
-            for (const label of labels) {
-                try {
-                    const res = await fetch(`/data/${label}.json`);
-                    const json = await res.json();
-                    loadedData[label] = json;
-                } catch (error) {
-                    console.warn(`⚠️ Kan ${label}.json niet laden`, error);
-                }
-            }
-
-            setGestureData(loadedData);
-        };
-
-        loadGestureData();
-    }, []);
-
     const enableWebcam = async () => {
-        if (!handLandmarker) return;
-
-        const video = videoRef.current;
         const stream = await navigator.mediaDevices.getUserMedia({
             video: true,
             audio: false
         });
 
-        video.srcObject = stream;
+        videoRef.current.srcObject = stream;
 
-        video.onloadedmetadata = () => {
-            video.play();
+        videoRef.current.onloadedmetadata = () => {
+            const video = videoRef.current;
             const canvas = canvasRef.current;
+
+            video.play();
+
             canvas.width = video.videoWidth;
             canvas.height = video.videoHeight;
-            drawUtilsRef.current = new DrawingUtils(canvas.getContext('2d'));
+
+            // Dit is optioneel maar visueel handig:
+            canvas.style.width = "100%";
+            video.style.width = "100%";
+
             predictWebcam();
         };
     };
@@ -89,41 +73,18 @@ export default function Trainer() {
     const predictWebcam = async () => {
         if (!handLandmarker) return;
 
-        const video = videoRef.current;
-        const result = await handLandmarker.detectForVideo(video, performance.now());
+        const result = await handLandmarker.detectForVideo(
+            videoRef.current,
+            performance.now()
+        );
 
         if (result.landmarks.length > 0) {
-            drawResults(result);
+            const hand = result.landmarks[0];
             setResults(result);
+            drawLandmarks(hand);
         }
 
         requestAnimationFrame(predictWebcam);
-    };
-
-    const drawResults = (results) => {
-        const canvas = canvasRef.current;
-        const ctx = canvas.getContext('2d');
-        const width = canvas.width;
-        const height = canvas.height;
-
-        ctx.save();
-        ctx.clearRect(0, 0, width, height);
-        ctx.scale(-1, 1);
-        ctx.translate(-width, 0);
-
-        for (let hand of results.landmarks) {
-            for (let point of hand) {
-                const x = point.x * width;
-                const y = point.y * height;
-
-                ctx.beginPath();
-                ctx.arc(x, y, 6, 0, 2 * Math.PI);
-                ctx.fillStyle = "#ff0000";
-                ctx.fill();
-            }
-        }
-
-        ctx.restore();
     };
 
     const simplifyLandmarks = (landmarks) =>
@@ -132,48 +93,32 @@ export default function Trainer() {
     const flattenLandmarks = (landmarks) =>
         landmarks.flatMap(p => [p.x, p.y, p.z]);
 
-    const euclideanDistance = (a, b) =>
-        Math.sqrt(a.reduce((sum, val, i) => sum + (val - b[i]) ** 2, 0));
+    const drawLandmarks = (landmarks) => {
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext("2d");
 
-    const predictSample = (sample) => {
-        const currentFlat = flattenLandmarks(sample);
-        const distances = [];
+        const width = canvas.width;
+        const height = canvas.height;
 
-        for (const [label, samples] of Object.entries(gestureData)) {
-            for (const s of samples) {
-                const sampleFlat = flattenLandmarks(s);
-                const dist = euclideanDistance(currentFlat, sampleFlat);
-                distances.push({ label, dist });
-            }
+        ctx.clearRect(0, 0, width, height);
+
+        ctx.save();
+        ctx.scale(-1, 1);
+        ctx.translate(-width, 0);
+
+        for (const point of landmarks) {
+            const x = point.x * width;
+            const y = point.y * height;
+
+            ctx.beginPath();
+            ctx.arc(x, y, 6, 0, Math.PI * 2);
+            ctx.fillStyle = "#ff0000";
+            ctx.fill();
         }
 
-        distances.sort((a, b) => a.dist - b.dist);
-        const topK = distances.slice(0, 3);
-
-        const votes = {};
-        for (const { label } of topK) {
-            votes[label] = (votes[label] || 0) + 1;
-        }
-
-        return Object.entries(votes).sort((a, b) => b[1] - a[1])[0][0];
+        ctx.restore();
     };
 
-    const evaluateAccuracy = () => {
-        let correct = 0;
-        let total = 0;
-
-        for (const [label, samples] of Object.entries(gestureData)) {
-            for (const sample of samples) {
-                const prediction = predictSample(sample);
-                if (prediction === label) correct++;
-                total++;
-            }
-        }
-
-        const accuracy = ((correct / total) * 100).toFixed(2);
-        alert(`✅ Accuracy: ${accuracy}% (${correct}/${total} correct)`);
-        console.log(`📊 Evaluatie voltooid — Accuracy: ${accuracy}%`);
-    };
 
     const capturePose = (label) => {
         if (results && results.landmarks.length > 0) {
@@ -182,6 +127,9 @@ export default function Trainer() {
                 ...prev,
                 [label]: [...prev[label], simplified]
             }));
+            console.log(`📸 "${label}" opgeslagen`);
+        } else {
+            console.warn("❌ Geen hand gevonden");
         }
     };
 
@@ -199,28 +147,88 @@ export default function Trainer() {
         link.click();
     };
 
+    const trainModel = () => {
+        const model = new kNear(3);
+        for (const [label, samples] of Object.entries(captureData)) {
+            samples.forEach(sample => {
+                model.learn(flattenLandmarks(sample), label);
+            });
+        }
+
+        setKnn(model);
+        alert("✅ Model getraind!");
+    };
+
+    const evaluateAccuracy = () => {
+        if (!knn) return alert("❗Train eerst je model");
+
+        let correct = 0;
+        let total = 0;
+
+        const labelCorrect = {};
+        const labelTotal = {};
+
+        for (const [label, samples] of Object.entries(captureData)) {
+            labelCorrect[label] = 0;
+            labelTotal[label] = samples.length;
+
+            for (const sample of samples) {
+                const prediction = knn.classify(flattenLandmarks(sample));
+                if (prediction === label) labelCorrect[label]++;
+                if (prediction === label) correct++;
+                total++;
+            }
+        }
+
+        const acc = ((correct / total) * 100).toFixed(2);
+        setAccuracy(acc);
+
+        const scores = Object.keys(labelCorrect).map(label => ({
+            label,
+            correct: labelCorrect[label],
+            total: labelTotal[label],
+            percent: ((labelCorrect[label] / labelTotal[label]) * 100).toFixed(1)
+        }));
+
+        setLabelScores(scores);
+
+        alert(`✅ Accuracy: ${acc}%`);
+    };
+
+
     return (
         <section>
             <header className="app-header">
                 <h1>📦 Trainer Interface</h1>
-                <p>Gebruik dit scherm om trainingsdata vast te leggen en je model te evalueren.</p>
+                <p>Gebruik dit scherm om handgebaren vast te leggen en je KNN-model te trainen en evalueren.</p>
             </header>
 
             <div className="videoView">
-                <div style={{ position: 'relative' }}>
-                    <video ref={videoRef} autoPlay muted playsInline />
-                    <canvas ref={canvasRef} id="output_canvas" />
-                </div>
+                <video ref={videoRef} autoPlay muted playsInline />
+                <canvas ref={canvasRef} id="output_canvas" />
             </div>
 
             <div className="controls">
-                <h2>🎥 Data verzamelen</h2>
                 <button onClick={enableWebcam}>🎥 Start Webcam</button>
-                <button onClick={evaluateAccuracy}>✅ Evaluate Accuracy</button>
+                <button onClick={trainModel}>🧠 Train Model</button>
+                <button onClick={evaluateAccuracy}>📊 Evaluate Accuracy</button>
+                {accuracy && (
+                    <>
+                        <p className="gesture-label">✅ Accuracy: {accuracy}%</p>
+                        <ul className="distance-list">
+                            {labelScores.map(({ label, correct, total, percent }) => (
+                                <li key={label}>
+                                    {label.replace("_", " ")}: {correct}/{total} correct
+                                    <span style={{ float: "right", color: "#00ffd5" }}>{percent}%</span>
+                                </li>
+                            ))}
+                        </ul>
+                    </>
+                )}
 
                 <div className="pose-controls">
                     <h3>📸 Capture & Download JSON</h3>
-                    {['good_luck', 'good_job', 'loser', 'call_me', 'rock'].map((label) => (
+                    {['good_luck', 'good_job', 'loser', 'call_me', 'rock'].map(label => (
                         <div key={label}>
                             <button onClick={() => capturePose(label)}>
                                 📸 Capture "{label.replace('_', ' ')}"
