@@ -1,17 +1,17 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { HashRouter, Routes, Route } from 'react-router-dom'; // 👈 switch to HashRouter
+import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import App from './App.jsx';
 import Trainer from './Trainer.jsx';
 import './style.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
     <React.StrictMode>
-        <HashRouter>
+        <BrowserRouter>
             <Routes>
                 <Route path="/" element={<App />} />
                 <Route path="/trainer" element={<Trainer />} />
             </Routes>
-        </HashRouter>
+        </BrowserRouter>
     </React.StrictMode>
 );
