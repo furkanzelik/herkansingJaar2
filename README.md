@@ -20,7 +20,7 @@ Dit project is een handgebaren-herkenningsapplicatie gebouwd met React, MediaPip
 1. Clone dit project:
 
 ```bash
-  git clone https://github.com/jouw-gebruiker/hand-gesture-translator.git
+  git clone https://github.com/furkanzelik/herkansingJaar2.git
   cd hand-gesture-translator
 ```
 
