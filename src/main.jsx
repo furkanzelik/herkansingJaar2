@@ -7,7 +7,7 @@ import './style.css';
 
 ReactDOM.createRoot(document.getElementById('root')).render(
     <React.StrictMode>
-        <BrowserRouter>
+        <BrowserRouter basename="/herkansingJaar2">
             <Routes>
                 <Route path="/" element={<App />} />
                 <Route path="/trainer" element={<Trainer />} />

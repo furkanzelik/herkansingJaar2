@@ -44,7 +44,7 @@ export default function App() {
 
             for (const label of labels) {
                 try {
-                    const res = await fetch(`/data/${label}.json`);
+                    const res = await fetch(`${import.meta.env.BASE_URL}data/${label}.json`);
                     const json = await res.json();
                     data[label] = json;
                     json.forEach(example => {
