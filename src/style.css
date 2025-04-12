@@ -139,3 +139,23 @@ button:hover {
         text-align: left;
     }
 }
+
+.topnav {
+    display: flex;
+    gap: 1em;
+    justify-content: center;
+    background-color: #111;
+    padding: 1em;
+    border-bottom: 2px solid #00ffd5;
+}
+
+.topnav a {
+    color: #00ffd5;
+    text-decoration: none;
+    font-weight: bold;
+}
+
+.topnav a:hover {
+    text-decoration: underline;
+}
+

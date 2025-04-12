@@ -1,17 +1,21 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
 import App from './App.jsx';
 import Trainer from './Trainer.jsx';
 import './style.css';
 
-ReactDOM.createRoot(document.getElementById('root')).render(
-    <React.StrictMode>
-        <BrowserRouter>
+const Root = () => (
+    <BrowserRouter>
+        <nav className="topnav">
+            <Link to="/">🏠 App</Link>
+            <Link to="/trainer">🎓 Trainer</Link>
+        </nav>
         <Routes>
             <Route path="/" element={<App />} />
             <Route path="/trainer" element={<Trainer />} />
         </Routes>
     </BrowserRouter>
-    </React.StrictMode>
 );
+
+ReactDOM.createRoot(document.getElementById('root')).render(<Root />);
