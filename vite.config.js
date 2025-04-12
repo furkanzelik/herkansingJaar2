@@ -4,5 +4,5 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
-  base: '/herkansingJaar2/',  // ADD THIS LINE
+  base: '/',  // ADD THIS LINE
 })
